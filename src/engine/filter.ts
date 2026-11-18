@@ -1,6 +1,6 @@
 export interface Pixels { width: number; height: number; data: Uint8ClampedArray }
 export interface FilterParams { stripWidth: number; iterations: number; mirror: boolean; reverse: boolean; clockwise: boolean; mix: number; contrast: number }
-export const defaults: FilterParams = { stripWidth: 8, iterations: 2, mirror: true, reverse: false, clockwise: true, mix: 100, contrast: 0 };
+export const defaults: FilterParams = { stripWidth: 8, iterations: 2, mirror: true, reverse: false, clockwise: false, mix: 100, contrast: 0 };
 
 /** Reflect about the central axes; every source pixel appears exactly four times. */
 export function mirrorGrid(source: Pixels): Pixels {

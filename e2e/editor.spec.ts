@@ -8,6 +8,9 @@ test('places the image on the left, controls on the right and comparison below',
   const comparison = await page.getByRole('group', { name: 'Comparar antes y después' }).boundingBox();
   expect(preview!.x + preview!.width).toBeLessThan(controls!.x);
   expect(comparison!.y).toBeGreaterThanOrEqual(canvas!.y + canvas!.height);
+  await expect(page.getByLabel('Giro', { exact: true })).toHaveValue('ccw');
+  await expect(page.getByRole('button', { name: 'Mover lienzo' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Acercar' })).toHaveCount(0);
   await page.screenshot({ path: `outputs/editor-${testInfo.project.name}.png`, fullPage: true });
 });
 test('edits, compares, saves and exports a real image', async ({ page }) => {
@@ -20,10 +23,10 @@ test('edits, compares, saves and exports a real image', async ({ page }) => {
   await expect(page.getByRole('slider', { name: 'Grosor de las tiras', exact: true })).toHaveValue('29');
   await expect(downloadButton).toBeEnabled();
   expect((await page.locator('canvas').screenshot()).equals(original)).toBe(false);
-  await page.getByRole('button', { name: 'Original', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Original', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Resultado', exact: true }).click();
-  await expect(page.getByText('Guardado en este navegador')).toBeVisible();
+  await page.getByRole('switch', { name: 'Ver resultado' }).uncheck();
+  await expect(page.getByRole('img', { name: 'Imagen original', exact: true })).toBeVisible();
+  await page.getByRole('switch', { name: 'Ver resultado' }).check();
+  await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
   await page.reload();
   await expect(page.getByRole('spinbutton', { name: 'Grosor de las tiras: valor exacto' })).toHaveValue('29');
   await expect(downloadButton).toBeEnabled();
@@ -34,13 +37,31 @@ test('edits, compares, saves and exports a real image', async ({ page }) => {
 });
 test('imports multiple files and updates the active source', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
-  const sourceUrl = await page.getByRole('img', { name: 'Estudio 01.png', exact: true }).getAttribute('src');
+  const sourceUrl = await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL('image/png'));
   const fixture = Buffer.from(sourceUrl!.split(',')[1], 'base64');
   await page.locator('input[type=file]').setInputFiles([{ name: 'uno.png', mimeType: 'image/png', buffer: fixture }, { name: 'dos.png', mimeType: 'image/png', buffer: fixture }]);
   await expect(page.getByRole('button', { name: 'Seleccionar dos.png' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Seleccionar uno.png' }).click();
   await expect(page.getByRole('button', { name: 'Seleccionar uno.png' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+});
+test('migrates the old rotation default and preserves later choices', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+  await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open('pliegue', 1); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('projects', 'readwrite'), store = tx.objectStore('projects'), request = store.get('latest');
+      request.onsuccess = () => { const saved = request.result; delete saved.uiVersion; saved.params.clockwise = true; saved.params.stripWidth = 17; store.put(saved, 'latest'); };
+      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    }); db.close();
+  });
+  await page.reload();
+  await expect(page.getByLabel('Giro', { exact: true })).toHaveValue('ccw');
+  await expect(page.getByRole('spinbutton', { name: 'Grosor de las tiras: valor exacto' })).toHaveValue('17');
+  await page.getByLabel('Giro', { exact: true }).selectOption('cw');
+  await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
+  await page.reload(); await expect(page.getByLabel('Giro', { exact: true })).toHaveValue('cw');
 });
 test('works without workers, validates exact input and fits mobile', async ({ page }) => {
   await page.addInitScript(() => { Object.defineProperty(window, 'Worker', { value: undefined }); });

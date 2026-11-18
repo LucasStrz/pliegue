@@ -1,6 +1,6 @@
 # Pliegue
 
-Laboratorio de collage digital construido con React, TypeScript, Vite, react-konva, Zustand y Tailwind CSS. Las imágenes se procesan localmente: no hay subidas, analítica ni servicios externos en el editor.
+Laboratorio de collage digital construido con React, TypeScript, Vite, Canvas API y Zustand. Interfaz mínima inspirada en la web antigua: imagen sin marco, comparación debajo y controles nativos al costado. Las imágenes se procesan localmente: no hay subidas, analítica ni servicios externos en el editor.
 
 ## Desarrollo
 
@@ -18,13 +18,13 @@ Abre la URL que indica Vite. Para producción: `npm run build`; para inspecciona
 3. Repetición del paso anterior sobre la imagen resultante. Una pasada intercambia ancho y alto; dos recuperan las dimensiones iniciales.
 4. Mezcla con la imagen previa al reordenamiento y ajuste de contraste.
 
-Los controles permiten elegir grosor, repeticiones, extremo inicial, dirección del giro, intensidad y contraste. Hay comparación original/resultado, zoom, desplazamiento, preajustes, importación múltiple y exportación PNG/JPG. Las imágenes importadas se seleccionan individualmente: esta primera versión no incorpora composición multicapa.
+Los controles permiten elegir grosor, repeticiones, extremo inicial, dirección del giro, intensidad y contraste. El giro predeterminado es antihorario. Hay comparación antes/después, preajustes, importación múltiple y exportación PNG/JPG. Las imágenes importadas se seleccionan individualmente: esta primera versión no incorpora composición multicapa.
 
 ## Arquitectura
 
 - `src/engine`: algoritmos puros sobre RGBA y Web Worker.
 - `src/hooks/useProcessor.ts`: procesamiento asíncrono con descarte de resultados antiguos y alternativa en el hilo principal si no hay Worker.
-- `src/components`: visor Konva y control sincronizado slider/número.
+- `src/components`: imagen Canvas y control sincronizado slider/número.
 - `src/store.ts`: parámetros con Zustand.
 - `src/lib`: lectura/exportación de imágenes y persistencia IndexedDB.
 
