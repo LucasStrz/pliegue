@@ -115,6 +115,7 @@ export default function App() {
         <div className="export"><select aria-label="Formato de exportación" value={format} onChange={e => setFormat(e.target.value)}><option value="png">PNG</option><option value="jpeg">JPG</option></select><button disabled={!result || busy || exporting || loading} onClick={() => void exportImage()}>{exporting ? 'Exportando…' : 'Exportar imagen'}</button></div>
       </aside>
     </main>
+    <footer className="site-footer">I just made somebullshittttt</footer>
     <span className="sr-only" role="status">{saveStatus}</span>
     {(error || processError) && <div className="notice" role="alert"><span>{error || processError}</span><button aria-label="Cerrar error" onClick={() => setError('')}>×</button></div>}
     {message && <div className="notice" role="status">{message}</div>}
