@@ -65,7 +65,7 @@ export default function App() {
     } catch (e) { setError(String(e)); } finally { setExporting(false); }
   }
   const custom = () => setPresetName('Personalizado');
-  const setNumber = (key: 'stripWidth' | 'iterations' | 'mix' | 'contrast' | 'saturation' | 'blurStrength', value: number) => { custom(); setParam(key, value); };
+  const setNumber = (key: 'stripWidth' | 'iterations' | 'mix' | 'contrast' | 'saturation' | 'blurStrength' | 'smoothingStrength', value: number) => { custom(); setParam(key, value); };
   return <div className="app" onDragOver={e => { e.preventDefault(); if (e.dataTransfer.types.includes('Files')) setDrag(true); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDrag(false); }} onDrop={e => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files.length) void importFiles(e.dataTransfer.files); }}>
     <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif" multiple hidden onChange={e => { if (e.target.files) void importFiles(e.target.files); }}/>
     <header><a href="#" className="brand" aria-label="Pliegue, inicio">pliegue</a><button disabled={loading} onClick={() => input.current?.click()}>Importar imagen</button></header>
@@ -82,6 +82,8 @@ export default function App() {
         <div className="quadrants"><span>Giro de cuadrantes</span><div>{params.quadrantRotations.map((angle, i) => <select key={i} aria-label={'Giro cuadrante ' + (i + 1)} title={['Superior izquierdo', 'Superior derecho', 'Inferior izquierdo', 'Inferior derecho'][i]} value={angle} onChange={e => { custom(); const angles = [...params.quadrantRotations] as [number, number, number, number]; angles[i] = Number(e.target.value); setParam('quadrantRotations', angles); }}>{[0, 90, 180, 270].map(value => <option key={value} value={value}>{value}°</option>)}</select>)}</div></div>
         <Parameter label="Contraste" min={-100} max={100} value={params.contrast} onChange={v => setNumber('contrast', v)}/>
         <Parameter label="Saturación" min={0} max={200} value={params.saturation} unit="%" onChange={v => setNumber('saturation', v)}/>
+        <div className="select-row"><label htmlFor="shader">Shader</label><select id="shader" value={params.smoothing ? 'pixel' : 'none'} onChange={e => { custom(); setParam('smoothing', e.target.value === 'pixel'); }}><option value="none">Ninguno</option><option value="pixel">Pixel smooth</option></select></div>
+        {params.smoothing && <Parameter label="Suavizado" min={0} max={100} value={params.smoothingStrength} unit="%" onChange={v => setNumber('smoothingStrength', v)}/>}
         <div className="select-row"><label htmlFor="blur">Blur</label><select id="blur" value={params.blurType} onChange={e => { custom(); setParam('blurType', e.target.value as typeof params.blurType); }}><option value="none">Ninguno</option><option value="gaussian">Gaussian</option><option value="box">Box</option></select></div>
         {params.blurType !== 'none' && <Parameter label="Intensidad blur" min={0} max={30} value={params.blurStrength} unit="px" onChange={v => setNumber('blurStrength', v)}/>}
         <Parameter label="Intensidad" min={0} max={100} value={params.mix} unit="%" onChange={v => setNumber('mix', v)}/>

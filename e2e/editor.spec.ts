@@ -104,11 +104,44 @@ test('edits quadrant rotation, blur, saturation and tile rotation, then restores
   await expect(page.getByLabel('Blur', { exact: true })).toHaveValue('none');
   await expect(page.getByRole('spinbutton', { name: 'Saturación: valor exacto' })).toHaveValue('100');
 });
+test('runs the GPU pixel shader with CPU parity', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+  const result = await page.evaluate(async () => {
+    const modulePath = '/src/engine/smoothing.ts'; const shader = await import(modulePath);
+    const data = new Uint8ClampedArray(Array.from({ length: 35 }, (_, i) => {
+      const x = i % 5, y = Math.floor(i / 5); return x + y < 5 ? [20, 40, 130, 128] : [240, 190, 30, 255];
+    }).flat());
+    const source = { width: 5, height: 7, data };
+    const cpu = shader.smoothPixelsCpu(source, 85), gpu = shader.smoothPixelsGpu(source, 85);
+    if (!gpu) return { backend: 'cpu', difference: 0, changed: cpu.data.some((v: number, i: number) => v !== data[i]) };
+    let difference = 0; for (let i = 0; i < data.length; i++) difference = Math.max(difference, Math.abs(cpu.data[i] - gpu.data[i]));
+    return { backend: 'webgl2', difference, changed: gpu.data.some((v: number, i: number) => v !== data[i]) };
+  });
+  console.log('Pixel smooth backend:', result.backend);
+  expect(result.changed).toBe(true); expect(result.difference).toBeLessThanOrEqual(1);
+});
+test('adjusts smoothing, persists it and exports the processed image', async ({ page }) => {
+  await page.goto('/'); const exportButton = page.getByRole('button', { name: 'Exportar imagen' }); await expect(exportButton).toBeEnabled();
+  const before = await page.locator('canvas').screenshot();
+  await page.getByLabel('Shader', { exact: true }).selectOption('pixel');
+  await page.getByRole('spinbutton', { name: 'Suavizado: valor exacto' }).fill('100');
+  await expect(exportButton).toBeEnabled();
+  expect((await page.locator('canvas').screenshot()).equals(before)).toBe(false);
+  await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
+  await page.reload(); await expect(exportButton).toBeEnabled();
+  await expect(page.getByLabel('Shader', { exact: true })).toHaveValue('pixel');
+  await expect(page.getByRole('slider', { name: 'Suavizado', exact: true })).toHaveValue('100');
+  const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()]); expect(await download.failure()).toBeNull();
+  await page.getByRole('button', { name: 'Restablecer parámetros' }).click();
+  await expect(page.getByLabel('Shader', { exact: true })).toHaveValue('none');
+});
 test('works without workers, validates exact input and fits mobile', async ({ page }) => {
-  await page.addInitScript(() => { Object.defineProperty(window, 'Worker', { value: undefined }); });
+  await page.addInitScript(() => { Object.defineProperty(window, 'Worker', { value: undefined }); Object.defineProperty(window, 'OffscreenCanvas', { value: undefined }); });
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
   await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
   const field = page.getByRole('spinbutton', { name: 'Repeticiones: valor exacto' });
+  await page.getByLabel('Shader', { exact: true }).selectOption('pixel');
+  await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
   await field.fill('99'); await field.press('Tab'); await expect(field).toHaveValue('12');
   await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
   await page.getByRole('button', { name: 'Restablecer parámetros' }).click(); await expect(field).toHaveValue('2');
