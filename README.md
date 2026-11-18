@@ -6,6 +6,8 @@ Laboratorio de collage digital construido con React, TypeScript, Vite, Canvas AP
 
 Consulta [Funcionamiento completo del programa](docs/FUNCIONAMIENTO.md): mapa de archivos, flujo de datos, controles, algoritmos, Worker, persistencia, exportación, pruebas, publicación y límites.
 
+Para GitHub y Vercel, consulta [Publicación en GitHub y Vercel](docs/GITHUB_VERCEL.md). El proyecto incluye `vercel.json` con instalación `npm ci`, compilación `npm run build` y salida `dist`.
+
 **Pixel smooth está temporalmente deshabilitado.** Sus controles están ocultos y el motor omite el efecto incluso en proyectos que lo tenían activado. El código se conserva; el interruptor y los pasos de reactivación se documentan en la guía.
 
 ## Desarrollo

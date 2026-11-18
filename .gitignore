@@ -6,3 +6,6 @@ playwright-report/
 *.local
 *.tsbuildinfo
 outputs/
+.vercel/
+.env
+.env.*
