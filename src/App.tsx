@@ -7,6 +7,7 @@ import type { Pixels } from './engine/filter';
 import { decodeImage, pixelsToCanvas, readFile } from './lib/images';
 import { restoreProject, saveProject } from './lib/storage';
 import { useProcessor } from './hooks/useProcessor';
+import { PIXEL_SMOOTH_ENABLED } from './config/features';
 interface Asset { id: string; name: string; thumbnail: string; source: Pixels }
 const presets = [{ name: 'Entrelazado', width: 8, passes: 2 }, { name: 'Fragmentos', width: 32, passes: 2 }, { name: 'Trama fina', width: 2, passes: 4 }];
 export default function App() {
@@ -82,8 +83,8 @@ export default function App() {
         <div className="quadrants"><span>Giro de cuadrantes</span><div>{params.quadrantRotations.map((angle, i) => <select key={i} aria-label={'Giro cuadrante ' + (i + 1)} title={['Superior izquierdo', 'Superior derecho', 'Inferior izquierdo', 'Inferior derecho'][i]} value={angle} onChange={e => { custom(); const angles = [...params.quadrantRotations] as [number, number, number, number]; angles[i] = Number(e.target.value); setParam('quadrantRotations', angles); }}>{[0, 90, 180, 270].map(value => <option key={value} value={value}>{value}°</option>)}</select>)}</div></div>
         <Parameter label="Contraste" min={-100} max={100} value={params.contrast} onChange={v => setNumber('contrast', v)}/>
         <Parameter label="Saturación" min={0} max={200} value={params.saturation} unit="%" onChange={v => setNumber('saturation', v)}/>
-        <div className="select-row"><label htmlFor="shader">Shader</label><select id="shader" value={params.smoothing ? 'pixel' : 'none'} onChange={e => { custom(); setParam('smoothing', e.target.value === 'pixel'); }}><option value="none">Ninguno</option><option value="pixel">Pixel smooth</option></select></div>
-        {params.smoothing && <Parameter label="Suavizado" min={0} max={100} value={params.smoothingStrength} unit="%" onChange={v => setNumber('smoothingStrength', v)}/>}
+        {PIXEL_SMOOTH_ENABLED && <><div className="select-row"><label htmlFor="shader">Shader</label><select id="shader" value={params.smoothing ? 'pixel' : 'none'} onChange={e => { custom(); setParam('smoothing', e.target.value === 'pixel'); }}><option value="none">Ninguno</option><option value="pixel">Pixel smooth</option></select></div>
+        {params.smoothing && <Parameter label="Suavizado" min={0} max={100} value={params.smoothingStrength} unit="%" onChange={v => setNumber('smoothingStrength', v)}/>}</>}
         <div className="select-row"><label htmlFor="blur">Blur</label><select id="blur" value={params.blurType} onChange={e => { custom(); setParam('blurType', e.target.value as typeof params.blurType); }}><option value="none">Ninguno</option><option value="gaussian">Gaussian</option><option value="box">Box</option></select></div>
         {params.blurType !== 'none' && <Parameter label="Intensidad blur" min={0} max={30} value={params.blurStrength} unit="px" onChange={v => setNumber('blurStrength', v)}/>}
         <Parameter label="Intensidad" min={0} max={100} value={params.mix} unit="%" onChange={v => setNumber('mix', v)}/>

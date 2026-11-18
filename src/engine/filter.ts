@@ -1,5 +1,6 @@
 import { adjustColor, blurImage, mixOriginal, padToTiles, rotateTiles, rotateQuadrants } from './effects';
 import { smoothPixels } from './smoothing';
+import { PIXEL_SMOOTH_ENABLED } from '../config/features';
 export interface Pixels { width: number; height: number; data: Uint8ClampedArray }
 export interface FilterParams { stripWidth: number; iterations: number; reverse: boolean; clockwise: boolean; mix: number; contrast: number; saturation: number; smoothing: boolean; smoothingStrength: number; blurType: 'none' | 'gaussian' | 'box'; blurStrength: number; tileRotation: number; quadrantRotations: [number, number, number, number] }
 export const defaults: FilterParams = { stripWidth: 8, iterations: 2, reverse: false, clockwise: false, mix: 100, contrast: 0, saturation: 100, smoothing: false, smoothingStrength: 75, blurType: 'none', blurStrength: 0, tileRotation: 0, quadrantRotations: [0, 0, 0, 0] };
@@ -47,7 +48,7 @@ export function processImage(source: Pixels, params: FilterParams): Pixels {
   for (let i = 0; i < passes; i++) result = weave(result, params.stripWidth, params.reverse, params.clockwise);
   result = rotateTiles(result, params.stripWidth, params.tileRotation);
   result = adjustColor(result, params.contrast, params.saturation);
-  if (params.smoothing) result = smoothPixels(result, params.smoothingStrength);
+  if (PIXEL_SMOOTH_ENABLED && params.smoothing) result = smoothPixels(result, params.smoothingStrength);
   result = blurImage(result, params.blurType, params.blurStrength);
   return mixOriginal(result, source, params.mix);
 }

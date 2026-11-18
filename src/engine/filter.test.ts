@@ -4,6 +4,10 @@ import type { Pixels } from './filter';
 const fixture = (width: number, height: number): Pixels => ({ width, height, data: new Uint8ClampedArray(Array.from({ length: width * height }, (_, i) => [i + 1, (i + 1) * 2, 0, i % 2 ? 128 : 255]).flat()) });
 const values = (p: Pixels) => Array.from({ length: p.width * p.height }, (_, i) => p.data[i * 4]);
 describe('mirroring and strip recomposition', () => {
+  it('ignores saved smoothing settings while the shader is temporarily disabled', () => {
+    const source = fixture(5, 3);
+    expect(processImage(source, { ...defaults, smoothing: true, smoothingStrength: 100 })).toEqual(processImage(source, { ...defaults, smoothing: false }));
+  });
   it('reflects both axes with the source at top left', () => {
     const out = mirrorGrid(fixture(2, 2));
     expect([out.width, out.height]).toEqual([4, 4]);
