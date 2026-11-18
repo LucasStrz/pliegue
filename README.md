@@ -14,11 +14,14 @@ Abre la URL que indica Vite. Para producción: `npm run build`; para inspecciona
 ## El filtro
 
 1. Espejo lateral y vertical opcional, para crear una cuadrícula 2×2.
-2. División en tiras verticales del grosor seleccionado. Se toma la primera, la última, la segunda, la penúltima, etc. Cada tira gira 90° y se apila de arriba abajo. La tira final parcial conserva sus dimensiones; ningún píxel se elimina.
-3. Repetición del paso anterior sobre la imagen resultante. Una pasada intercambia ancho y alto; dos recuperan las dimensiones iniciales.
-4. Mezcla con la imagen previa al reordenamiento y ajuste de contraste.
+2. Giro independiente de cada cuadrante en pasos de 90°, antes de cortar. Si la celda es rectangular, el contenido girado se ajusta sin deformarlo ni recortarlo; puede quedar margen transparente.
+3. División en tiras verticales del grosor seleccionado. Se toma la primera, la última, la segunda, la penúltima, etc. Cada tira gira 90° y se apila de arriba abajo. La tira final parcial conserva sus dimensiones; ningún píxel se elimina.
+4. Repetición del paso anterior sobre la imagen resultante. Una pasada intercambia ancho y alto; dos recuperan las dimensiones iniciales.
+5. Saturación (0–200 %, 100 % neutro), contraste y desenfoque opcional Box o Gaussian con intensidad de 0–30 px. Gaussian utiliza una aproximación de tres filtros box ajustados a su varianza; Box utiliza un promedio uniforme. El cálculo separable con sumas deslizantes mantiene el coste lineal. Se calcula en alfa premultiplicado para evitar halos oscuros en zonas transparentes.
+6. Rotación completa entre −180° y 180°. El lienzo se amplía para conservar las esquinas. Los ángulos positivos giran en sentido horario.
+7. La intensidad mezcla **siempre con la imagen original, sin espejo ni efectos**, ajustada proporcionalmente al lienzo de salida, con margen transparente cuando las proporciones difieren. 0 % = original, 100 % = resultado de todos los efectos. El ajuste a otro tamaño usa interpolación bilineal y la mezcla conserva correctamente la transparencia. PNG conserva estos márgenes; JPG los rellena de blanco.
 
-Los controles permiten elegir grosor, repeticiones, extremo inicial, dirección del giro, intensidad y contraste. El giro predeterminado es antihorario. Hay comparación antes/después, preajustes, importación múltiple y exportación PNG/JPG. Las imágenes importadas se seleccionan individualmente: esta primera versión no incorpora composición multicapa.
+Los controles permiten elegir grosor, repeticiones, extremo inicial, dirección del giro, intensidad, contraste, rotaciones, saturación y desenfoque. El giro de las tiras predeterminado es antihorario. Hay comparación antes/después, preajustes, importación múltiple y exportación PNG/JPG. Las imágenes importadas se seleccionan individualmente: esta primera versión no incorpora composición multicapa.
 
 ## Arquitectura
 

@@ -65,7 +65,7 @@ export default function App() {
     } catch (e) { setError(String(e)); } finally { setExporting(false); }
   }
   const custom = () => setPresetName('Personalizado');
-  const setNumber = (key: 'stripWidth' | 'iterations' | 'mix' | 'contrast', value: number) => { custom(); setParam(key, value); };
+  const setNumber = (key: 'stripWidth' | 'iterations' | 'mix' | 'contrast' | 'saturation' | 'blurStrength' | 'rotation', value: number) => { custom(); setParam(key, value); };
   return <div className="app" onDragOver={e => { e.preventDefault(); if (e.dataTransfer.types.includes('Files')) setDrag(true); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDrag(false); }} onDrop={e => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files.length) void importFiles(e.dataTransfer.files); }}>
     <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif" multiple hidden onChange={e => { if (e.target.files) void importFiles(e.target.files); }}/>
     <header><a href="#" className="brand" aria-label="Pliegue, inicio">pliegue</a><button disabled={loading} onClick={() => input.current?.click()}>Importar imagen</button></header>
@@ -76,12 +76,17 @@ export default function App() {
       <aside aria-label="Parámetros del filtro">
         <select aria-label="Preajuste" value={presetName} onChange={e => { const p = presets.find(p => p.name === e.target.value); if (p) { setParams({ ...defaults, stripWidth: p.width, iterations: p.passes }); setPresetName(p.name); setBefore(false); } }}><option value="Personalizado" disabled>Personalizado</option>{presets.map(p => <option key={p.name}>{p.name}</option>)}</select>
         <label className="check-row"><input type="checkbox" aria-label="Activar espejo 2 por 2" checked={params.mirror} onChange={e => { custom(); setParam('mirror', e.target.checked); }}/>Espejo 2 × 2</label>
+        {params.mirror && <div className="quadrants"><span>Giro de cuadrantes</span><div>{params.quadrantRotations.map((angle, i) => <select key={i} aria-label={'Giro cuadrante ' + (i + 1)} title={['Superior izquierdo', 'Superior derecho', 'Inferior izquierdo', 'Inferior derecho'][i]} value={angle} onChange={e => { custom(); const angles = [...params.quadrantRotations] as [number, number, number, number]; angles[i] = Number(e.target.value); setParam('quadrantRotations', angles); }}>{[0, 90, 180, 270].map(value => <option key={value} value={value}>{value}°</option>)}</select>)}</div></div>}
         <Parameter label="Grosor de las tiras" min={1} max={96} value={params.stripWidth} unit="px" onChange={v => setNumber('stripWidth', v)}/>
         <Parameter label="Repeticiones" min={1} max={12} value={params.iterations} unit="×" onChange={v => setNumber('iterations', v)}/>
         <div className="select-row"><label htmlFor="start">Inicio</label><select id="start" value={params.reverse ? 'right' : 'left'} onChange={e => { custom(); setParam('reverse', e.target.value === 'right'); }}><option value="left">Izquierda</option><option value="right">Derecha</option></select></div>
         <div className="select-row"><label htmlFor="rotation">Giro</label><select id="rotation" value={params.clockwise ? 'cw' : 'ccw'} onChange={e => { custom(); setParam('clockwise', e.target.value === 'cw'); }}><option value="ccw">Antihorario</option><option value="cw">Horario</option></select></div>
         <Parameter label="Intensidad" min={0} max={100} value={params.mix} unit="%" onChange={v => setNumber('mix', v)}/>
         <Parameter label="Contraste" min={-100} max={100} value={params.contrast} onChange={v => setNumber('contrast', v)}/>
+        <Parameter label="Saturación" min={0} max={200} value={params.saturation} unit="%" onChange={v => setNumber('saturation', v)}/>
+        <div className="select-row"><label htmlFor="blur">Blur</label><select id="blur" value={params.blurType} onChange={e => { custom(); setParam('blurType', e.target.value as typeof params.blurType); }}><option value="none">Ninguno</option><option value="gaussian">Gaussian</option><option value="box">Box</option></select></div>
+        {params.blurType !== 'none' && <Parameter label="Intensidad blur" min={0} max={30} value={params.blurStrength} unit="px" onChange={v => setNumber('blurStrength', v)}/>}
+        <Parameter label="Rotación" min={-180} max={180} value={params.rotation} unit="°" onChange={v => setNumber('rotation', v)}/>
         <button className="reset" aria-label="Restablecer parámetros" onClick={() => { reset(); setPresetName('Entrelazado'); }}>Restablecer</button>
         <div className="export"><select aria-label="Formato de exportación" value={format} onChange={e => setFormat(e.target.value)}><option value="png">PNG</option><option value="jpeg">JPG</option></select><button disabled={!result || busy || exporting || loading} onClick={() => void exportImage()}>{exporting ? 'Exportando…' : 'Exportar imagen'}</button></div>
       </aside>

@@ -26,10 +26,13 @@ describe('mirroring and strip recomposition', () => {
       expect([out.width, out.height]).toEqual([7, 5]);
     }
   });
-  it('returns the unprocessed mirrored grid at zero intensity without mutating source', () => {
+  it('blends with the unmirrored original at zero intensity without mutating source', () => {
     const source = fixture(3, 2), copy = source.data.slice();
     const out = processImage(source, { ...defaults, stripWidth: 1, mix: 0 });
-    expect(out).toEqual(mirrorGrid(source)); expect(source.data).toEqual(copy);
+    expect([out.width, out.height]).toEqual([6, 4]);
+    expect(out.data[0]).toBe(1); expect(out.data[(out.width - 1) * 4]).toBe(3);
+    expect(out.data[(out.width * out.height - 1) * 4]).toBe(6);
+    expect(source.data).toEqual(copy);
   });
   it('can bypass mirroring and transposes odd passes', () => {
     const out = processImage(fixture(5, 3), { ...defaults, mirror: false, iterations: 3 });

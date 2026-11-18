@@ -1,6 +1,7 @@
+import { adjustColor, blurImage, mixOriginal, rotateImage, rotateQuadrants } from './effects';
 export interface Pixels { width: number; height: number; data: Uint8ClampedArray }
-export interface FilterParams { stripWidth: number; iterations: number; mirror: boolean; reverse: boolean; clockwise: boolean; mix: number; contrast: number }
-export const defaults: FilterParams = { stripWidth: 8, iterations: 2, mirror: true, reverse: false, clockwise: false, mix: 100, contrast: 0 };
+export interface FilterParams { stripWidth: number; iterations: number; mirror: boolean; reverse: boolean; clockwise: boolean; mix: number; contrast: number; saturation: number; blurType: 'none' | 'gaussian' | 'box'; blurStrength: number; rotation: number; quadrantRotations: [number, number, number, number] }
+export const defaults: FilterParams = { stripWidth: 8, iterations: 2, mirror: true, reverse: false, clockwise: false, mix: 100, contrast: 0, saturation: 100, blurType: 'none', blurStrength: 0, rotation: 0, quadrantRotations: [0, 0, 0, 0] };
 
 /** Reflect about the central axes; every source pixel appears exactly four times. */
 export function mirrorGrid(source: Pixels): Pixels {
@@ -39,21 +40,12 @@ export function weave(source: Pixels, thickness: number, reverse = false, clockw
 }
 
 export function processImage(source: Pixels, params: FilterParams): Pixels {
-  const base = params.mirror ? mirrorGrid(source) : source;
+  const base = params.mirror ? rotateQuadrants(mirrorGrid(source), params.quadrantRotations) : source;
   let result = base;
   const passes = Math.max(1, Math.min(12, Math.round(params.iterations)));
   for (let i = 0; i < passes; i++) result = weave(result, params.stripWidth, params.reverse, params.clockwise);
-  const mix = Math.max(0, Math.min(100, params.mix)) / 100;
-  const factor = (259 * (params.contrast + 255)) / (255 * (259 - params.contrast));
-  for (let y = 0; y < result.height; y++) for (let x = 0; x < result.width; x++) {
-    const at = (y * result.width + x) * 4;
-    const bx = Math.min(base.width - 1, Math.floor(x * base.width / result.width));
-    const by = Math.min(base.height - 1, Math.floor(y * base.height / result.height));
-    const original = (by * base.width + bx) * 4;
-    for (let c = 0; c < 4; c++) {
-      const value = c === 3 ? result.data[at + c] : factor * (result.data[at + c] - 128) + 128;
-      result.data[at + c] = value * mix + base.data[original + c] * (1 - mix);
-    }
-  }
-  return result;
+  result = adjustColor(result, params.contrast, params.saturation);
+  result = blurImage(result, params.blurType, params.blurStrength);
+  result = rotateImage(result, params.rotation);
+  return mixOriginal(result, source, params.mix);
 }
