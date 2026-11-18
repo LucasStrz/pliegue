@@ -1,5 +1,7 @@
 # Pliegue
 
+[Abrir la web pública](https://pliegue-two.vercel.app) · [Repositorio privado en GitHub](https://github.com/LucasStrz/pliegue)
+
 Laboratorio de collage digital construido con React, TypeScript, Vite, Canvas API y Zustand. Interfaz mínima inspirada en la web antigua: imagen sin marco, comparación debajo y controles nativos al costado. Las imágenes se procesan localmente: no hay subidas, analítica ni servicios externos en el editor.
 
 ## Documentación detallada

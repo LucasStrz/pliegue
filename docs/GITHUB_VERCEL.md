@@ -1,5 +1,16 @@
 # Publicación en GitHub y Vercel
 
+## Publicación actual
+
+- Web pública de producción: [pliegue-two.vercel.app](https://pliegue-two.vercel.app).
+- Repositorio privado: [LucasStrz/pliegue](https://github.com/LucasStrz/pliegue).
+- Proyecto de Vercel: `pliegue`, en el equipo `lucasss-projects-d5c2a67b`.
+- Código desplegado: commit `8f32a1249a977371d38398ed007ad251154108cf`.
+- Publicación inicial realizada mediante los archivos de ese commit, con Node 22, instalación `npm ci` y compilación `npm run build`.
+- La integración automática con GitHub **no está vinculada**: Vercel devolvió `repo_not_found` al intentar acceder al repositorio privado nuevo. El código sí está subido a GitHub y la web sí está desplegada y accesible sin autenticación. Para habilitar despliegues por cada push, se debe autorizar este repositorio en la integración GitHub de Vercel y conectarlo al proyecto existente, sin crear otro proyecto.
+
+El código y la documentación posteriores pueden avanzar en GitHub sin modificar este despliegue hasta que se publique una nueva versión o se habilite esa integración automática.
+
 ## Estado de preparación
 
 El proyecto está preparado como aplicación estática Vite. `npm run build` genera `dist/` y el Worker de procesamiento. `vercel.json` declara el framework, la instalación reproducible con `npm ci`, el comando de compilación y el directorio de salida.
