@@ -31,7 +31,7 @@ La imagen a la que se llama «original» es la imagen de trabajo decodificada y 
 | `src/engine/filter.worker.ts` | Recibe solicitudes del editor, ejecuta el motor y devuelve el resultado. |
 | `src/lib/images.ts` | FileReader, decodificación de imágenes, normalización del tamaño y conversión de píxeles a Canvas. |
 | `src/lib/storage.ts` | Lectura y escritura del último proyecto en IndexedDB. |
-| `public/estudio.svg` | Ilustración de demostración distribuida con la aplicación. |
+| `public/entrelazado.jpg` | Fotografía de demostración adjunta por el usuario y distribuida con la aplicación. |
 | `src/engine/*.test.ts` | Pruebas unitarias de los algoritmos y del bloqueo temporal del shader. |
 | `e2e/editor.spec.ts` | Pruebas de integración con Chromium y Firefox. |
 | `vite.config.ts` | Configuración de Vite con los plugins React y Tailwind. |
@@ -92,7 +92,7 @@ Al montar `App`:
 2. Si existe un proyecto, se decodifica su PNG guardado y se restauran sus parámetros.
 3. Los parámetros guardados se combinan con `defaults`, para que proyectos antiguos reciban los nuevos campos.
 4. Si el proyecto no tiene `uiVersion: 2`, el giro de las tiras se migra a antihorario. Las elecciones posteriores guardadas con esa versión se respetan.
-5. Si no existe un proyecto, se carga `public/estudio.svg`.
+5. Si no existe un proyecto, se carga `public/entrelazado.jpg` con los valores iniciales de Entrelazado. Los proyectos guardados como demostración también usan esta foto. La demostración anterior (`Estudio 01.png`, sin metadatos de procedencia) se reconoce y se sustituye; las imágenes guardadas como importadas conservan su contenido.
 6. La imagen activa y los parámetros disparan el procesamiento.
 
 El efecto de inicialización utiliza una marca de cancelación y `importGeneration`. Así evita que una restauración que termina tarde sustituya una importación iniciada por el usuario. `StrictMode` puede montar y limpiar efectos adicionalmente en desarrollo; los efectos de carga y el Worker incluyen limpieza.
@@ -113,11 +113,13 @@ alto de trabajo  = max(1, round(alto × ratio))
 
 No se amplían imágenes pequeñas durante la importación. La miniatura guardada como `thumbnail` es un PNG de la imagen de trabajo, no del resultado del filtro.
 
-La función conserva un argumento histórico `sample`: cuando es verdadero, toma el cuadrante superior izquierdo antes de ajustar el tamaño. El flujo normal actual no lo activa; la demostración se carga completa.
+La función `decodeImage` conserva un argumento histórico `sample`: cuando es verdadero, toma el cuadrante superior izquierdo antes de ajustar el tamaño. El flujo normal actual no lo activa; la demostración se carga completa. `importUrl` marca cada imagen con `isDemo` para distinguirla de las importadas.
 
-La interfaz admite PNG, JPEG, WebP, GIF, BMP y AVIF, sujeto a la capacidad de decodificación del navegador. La validación utiliza el tipo MIME del archivo. El límite por archivo es 30 MiB (`30 × 1024 × 1024` bytes), aunque el mensaje abrevia como «30 MB». SVG se utiliza internamente para la demostración, pero no se acepta como archivo importado desde el selector.
+La interfaz admite PNG, JPEG, WebP, GIF, BMP y AVIF, sujeto a la capacidad de decodificación del navegador. La validación utiliza el tipo MIME del archivo. El límite por archivo es 30 MiB (`30 × 1024 × 1024` bytes), aunque el mensaje abrevia como «30 MB». La demostración incluida es JPEG. SVG no se acepta como archivo importado desde el selector.
 
 Los archivos se procesan secuencialmente. Una importación múltiple puede tener éxitos y errores: se conservan los archivos válidos y se muestra el detalle de los fallos. Se retienen las últimas 12 imágenes de la sesión; si se importan más, también se decodifican antes de recortar esa lista. La última importada válida pasa a ser la activa.
+
+«Eliminar imagen seleccionada» aparece cuando la imagen activa es una importación, incluso si es la única imagen restaurada. Retira ese elemento de la biblioteca de sesión, selecciona el vecino disponible en la lista o carga la demostración si la lista queda vacía. La demostración no presenta botón de eliminación. Se guarda inmediatamente el nuevo proyecto activo para no restaurar la imagen eliminada al recargar; si ese guardado falla, se informa visualmente. El autoguardado normal sigue funcionando. No se modifica ni elimina el archivo original del disco. Elegir un preajuste modifica los parámetros y conserva la imagen activa.
 
 La misma ruta se utiliza al arrastrar archivos sobre la aplicación. Las animaciones se convierten en el fotograma capturado al importar; no hay línea de tiempo ni exportación animada.
 
@@ -333,6 +335,7 @@ interface SavedProject {
   image: string;       // PNG data URL de la original de trabajo
   params: FilterParams;
   uiVersion?: 2;
+  isDemo?: boolean;    // Procedencia: demostración incluida o archivo importado
 }
 ```
 

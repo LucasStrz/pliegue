@@ -1,5 +1,5 @@
 import type { FilterParams } from '../engine/filter';
-export interface SavedProject { name: string; image: string; params: FilterParams; uiVersion?: 2 }
+export interface SavedProject { name: string; image: string; params: FilterParams; uiVersion?: 2; isDemo?: boolean }
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => { const r = indexedDB.open('pliegue', 1); r.onupgradeneeded = () => r.result.createObjectStore('projects'); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
 }

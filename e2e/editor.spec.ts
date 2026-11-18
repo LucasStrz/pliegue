@@ -1,4 +1,41 @@
 import { test, expect } from '@playwright/test';
+test('starts with the supplied default image and Entrelazado preset', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+  await expect(page.getByLabel('Preajuste', { exact: true })).toHaveValue('Entrelazado');
+  await expect(page.getByRole('spinbutton', { name: 'Grosor de las tiras: valor exacto' })).toHaveValue('8');
+  await expect(page.getByRole('spinbutton', { name: 'Repeticiones: valor exacto' })).toHaveValue('2');
+  await expect(page.getByRole('button', { name: 'Eliminar imagen seleccionada', exact: true })).toHaveCount(0);
+  await page.getByRole('switch', { name: 'Ver resultado' }).uncheck();
+  await expect.poll(() => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => [canvas.width, canvas.height])).toEqual([480, 640]);
+});
+test('deletes the selected upload, keeps other images and returns to the demo', async ({ page }) => {
+  await page.goto('/'); const exportButton = page.getByRole('button', { name: 'Exportar imagen' }); await expect(exportButton).toBeEnabled();
+  const original = await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+  const fixture = Buffer.from(original.split(',')[1], 'base64');
+  await page.locator('input[type=file]').setInputFiles([{ name: 'uno.png', mimeType: 'image/png', buffer: fixture }, { name: 'dos.png', mimeType: 'image/png', buffer: fixture }]);
+  await expect(page.getByRole('button', { name: 'Seleccionar dos.png' })).toHaveAttribute('aria-pressed', 'true');
+  const remove = page.getByRole('button', { name: 'Eliminar imagen seleccionada', exact: true });
+  await remove.click();
+  await expect(page.getByRole('button', { name: 'Seleccionar dos.png' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Seleccionar uno.png' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(remove).toBeEnabled(); await remove.click();
+  await expect(remove).toHaveCount(0); await expect(exportButton).toBeEnabled();
+  expect(await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())).toBe(original);
+  await page.reload(); await expect(exportButton).toBeEnabled();
+  expect(await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())).toBe(original);
+});
+test('deletes a sole restored upload and persists the fallback demo', async ({ page }) => {
+  await page.goto('/'); const exportButton = page.getByRole('button', { name: 'Exportar imagen' }); await expect(exportButton).toBeEnabled();
+  const fixture = await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+  await page.locator('input[type=file]').setInputFiles({ name: 'guardada.png', mimeType: 'image/png', buffer: Buffer.from(fixture.split(',')[1], 'base64') });
+  await expect(exportButton).toBeEnabled(); await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
+  await page.reload(); await expect(exportButton).toBeEnabled();
+  await page.getByRole('button', { name: 'Eliminar imagen seleccionada', exact: true }).click();
+  await expect(exportButton).toBeEnabled();
+  await page.reload(); await expect(exportButton).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Eliminar imagen seleccionada', exact: true })).toHaveCount(0);
+  expect(await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())).toBe(fixture);
+});
 test('places the image on the left, controls on the right and comparison below', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
   await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
@@ -88,7 +125,7 @@ test('edits quadrant rotation, blur, saturation and tile rotation, then restores
   })).toBe(true);
   await page.getByLabel('Giro de baldosas', { exact: true }).selectOption('90');
   await expect(exportButton).toBeEnabled();
-  await expect.poll(() => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => [canvas.width, canvas.height])).toEqual([840, 1040]);
+  await expect.poll(() => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => [canvas.width, canvas.height])).toEqual([960, 1280]);
   await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
   await page.reload(); await expect(exportButton).toBeEnabled();
   await expect(page.getByLabel('Giro cuadrante 1', { exact: true })).toHaveValue('90');
@@ -98,7 +135,7 @@ test('edits quadrant rotation, blur, saturation and tile rotation, then restores
   await expect(page.getByLabel('Giro de baldosas', { exact: true })).toHaveValue('90');
   const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()]);
   const fs = await import('node:fs'); const png = fs.readFileSync((await download.path())!);
-  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([840, 1040]);
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([960, 1280]);
   await page.getByRole('button', { name: 'Restablecer parámetros' }).click();
   await expect(page.getByLabel('Giro cuadrante 1', { exact: true })).toHaveValue('0');
   await expect(page.getByLabel('Blur', { exact: true })).toHaveValue('none');

@@ -8,7 +8,7 @@ import { decodeImage, pixelsToCanvas, readFile } from './lib/images';
 import { restoreProject, saveProject } from './lib/storage';
 import { useProcessor } from './hooks/useProcessor';
 import { PIXEL_SMOOTH_ENABLED } from './config/features';
-interface Asset { id: string; name: string; thumbnail: string; source: Pixels }
+interface Asset { id: string; name: string; thumbnail: string; source: Pixels; isDemo: boolean }
 const presets = [{ name: 'Entrelazado', width: 8, passes: 2 }, { name: 'Fragmentos', width: 32, passes: 2 }, { name: 'Trama fina', width: 2, passes: 4 }];
 export default function App() {
   const { params, setParam, setParams, before, setBefore, reset } = useEditor();
@@ -16,9 +16,14 @@ export default function App() {
   const [message, setMessage] = useState(''), [error, setError] = useState(''), [drag, setDrag] = useState(false), [loading, setLoading] = useState(true), [saveStatus, setSaveStatus] = useState('Preparando estudio'), [exporting, setExporting] = useState(false), [format, setFormat] = useState('png');
   const [presetName, setPresetName] = useState('Entrelazado');
   const input = useRef<HTMLInputElement>(null), importGeneration = useRef(0);
+  const demo = useRef<Asset | null>(null);
   const asset = assets.find(a => a.id === activeId) ?? assets[0];
   const { result, busy, error: processError } = useProcessor(asset?.source ?? null, params);
-  const importUrl = useCallback(async (url: string, name: string, sample = false) => { const decoded = await decodeImage(url, sample); return { id: crypto.randomUUID(), name, ...decoded }; }, []);
+  const importUrl = useCallback(async (url: string, name: string, isDemo = false) => { const decoded = await decodeImage(url); return { id: crypto.randomUUID(), name, isDemo, ...decoded }; }, []);
+  const loadDemo = useCallback(async () => {
+    if (!demo.current) demo.current = await importUrl('/entrelazado.jpg', 'Entrelazado.jpg', true);
+    return demo.current;
+  }, [importUrl]);
   useEffect(() => {
     let cancelled = false;
     const generation = importGeneration.current;
@@ -26,18 +31,19 @@ export default function App() {
       let saved;
       try { saved = await restoreProject(); } catch { if (!cancelled) setSaveStatus('Guardado local no disponible'); }
       try {
-        const item = saved ? await importUrl(saved.image, saved.name) : await importUrl('/estudio.svg', 'Estudio 01.png');
+        const isSavedDemo = saved?.isDemo === true || (saved?.isDemo === undefined && saved?.name === 'Estudio 01.png');
+        const item = saved && !isSavedDemo ? await importUrl(saved.image, saved.name) : await loadDemo();
         if (cancelled || generation !== importGeneration.current) return;
         setAssets([item]); setActiveId(item.id); if (saved) setParams({ ...defaults, ...saved.params, clockwise: saved.uiVersion === 2 ? saved.params.clockwise : false });
       } catch (e) { if (!cancelled) setError(String(e)); }
       finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [importUrl, setParams]);
+  }, [importUrl, loadDemo, setParams]);
   useEffect(() => {
     if (!asset) return;
     setSaveStatus('Guardando cambios…');
-    const timer = window.setTimeout(() => { saveProject({ name: asset.name, image: asset.thumbnail, params, uiVersion: 2 }).then(() => setSaveStatus('Guardado en este navegador')).catch(() => setSaveStatus('No se pudo guardar localmente')); }, 650);
+    const timer = window.setTimeout(() => { saveProject({ name: asset.name, image: asset.thumbnail, params, uiVersion: 2, isDemo: asset.isDemo }).then(() => setSaveStatus('Guardado en este navegador')).catch(() => setSaveStatus('No se pudo guardar localmente')); }, 650);
     return () => window.clearTimeout(timer);
   }, [asset, params]);
   useEffect(() => { if (!message) return; const t = setTimeout(() => setMessage(''), 3500); return () => clearTimeout(t); }, [message]);
@@ -53,6 +59,21 @@ export default function App() {
       if (imported.length) { setAssets(a => [...a, ...imported].slice(-12)); setActiveId(imported[imported.length - 1].id); setBefore(false); setMessage(`${imported.length === 1 ? 'Imagen lista' : `${imported.length} imágenes listas`} para experimentar`); }
       if (failures.length) setError(failures.join(' · '));
     } finally { setLoading(false); if (input.current) input.current.value = ''; }
+  }
+  async function removeSelectedImage() {
+    if (!asset || asset.isDemo || loading) return;
+    setLoading(true); setError('');
+    try {
+      const index = assets.findIndex(item => item.id === asset.id);
+      const remaining = assets.filter(item => item.id !== asset.id);
+      const next = remaining[Math.min(index, remaining.length - 1)] ?? await loadDemo();
+      setAssets(remaining.length ? remaining : [next]); setActiveId(next.id); setBefore(false);
+      try {
+        await saveProject({ name: next.name, image: next.thumbnail, params, uiVersion: 2, isDemo: next.isDemo });
+        setSaveStatus('Guardado en este navegador');
+      } catch { setSaveStatus('No se pudo guardar localmente'); setError('Imagen retirada de la sesión. No se pudo actualizar el guardado local.'); }
+      setMessage('Imagen eliminada de la sesión');
+    } catch (e) { setError(String(e)); } finally { setLoading(false); }
   }
   async function exportImage() {
     if (!result || busy || !asset) return;
@@ -73,6 +94,7 @@ export default function App() {
     <main className="editor">
       <div className="image-column"><Preview pixels={before ? asset?.source ?? null : result} busy={busy || loading} before={before} setBefore={setBefore} onImport={() => input.current?.click()}/>
         {assets.length > 1 && <div className="assets">{assets.map(a => <button key={a.id} aria-label={'Seleccionar ' + a.name} aria-pressed={a.id === asset?.id} title={a.name} className={a.id === asset?.id ? 'active' : ''} onClick={() => { setActiveId(a.id); setBefore(false); }}><img src={a.thumbnail} alt={a.name}/></button>)}</div>}
+        {asset && !asset.isDemo && <div className="remove-image"><button disabled={loading} onClick={() => void removeSelectedImage()}>Eliminar imagen seleccionada</button></div>}
       </div>
       <aside aria-label="Parámetros del filtro">
         <select aria-label="Preajuste" value={presetName} onChange={e => { const p = presets.find(p => p.name === e.target.value); if (p) { setParams({ ...defaults, stripWidth: p.width, iterations: p.passes }); setPresetName(p.name); setBefore(false); } }}><option value="Personalizado" disabled>Personalizado</option>{presets.map(p => <option key={p.name}>{p.name}</option>)}</select>

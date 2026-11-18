@@ -43,7 +43,7 @@ El procesamiento activo trabaja directamente con ImageData. La implementación d
 
 Para mantener la respuesta interactiva, la imagen de trabajo se ajusta a 900 px en su lado mayor antes del espejo (hasta 1800 px después, más el relleno necesario para completar baldosas). La exportación usa esta resolución, sin prometer resolución nativa del archivo original. Se admiten archivos de hasta 30 MiB, un máximo de 12 imágenes en la sesión y se guarda automáticamente **el último proyecto activo**, no la biblioteca completa. IndexedDB depende del almacenamiento disponible del navegador; los fallos actualizan el estado accesible de guardado, actualmente oculto visualmente. Las animaciones GIF se importan como una imagen fija.
 
-La demostración incluida es un estudio abstracto vectorial creado para la aplicación. La referencia adjunta del usuario no se distribuye con el sitio.
+La demostración inicial es la fotografía adjunta por el usuario, incluida en `public/entrelazado.jpg`, con el preajuste Entrelazado. Las imágenes importadas pueden retirarse mediante «Eliminar imagen seleccionada». Se selecciona otra imagen disponible o se vuelve a la demostración, y se actualiza el último proyecto guardado. Esto no elimina archivos del disco del usuario.
 
 Para revisar alertas actuales de dependencias, ejecuta `npm audit` y `npm audit --omit=dev`; el resultado depende del lockfile y de los avisos vigentes del registro. Ejecuta el servidor de desarrollo solo en la interfaz local configurada.
 
