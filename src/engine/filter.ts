@@ -44,8 +44,8 @@ export function processImage(source: Pixels, params: FilterParams): Pixels {
   let result = base;
   const passes = Math.max(1, Math.min(12, Math.round(params.iterations)));
   for (let i = 0; i < passes; i++) result = weave(result, params.stripWidth, params.reverse, params.clockwise);
+  result = rotateTiles(result, params.stripWidth, params.tileRotation);
   result = adjustColor(result, params.contrast, params.saturation);
   result = blurImage(result, params.blurType, params.blurStrength);
-  result = rotateTiles(result, params.stripWidth, params.tileRotation);
   return mixOriginal(result, source, params.mix);
 }
