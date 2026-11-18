@@ -1,0 +1,54 @@
+import { test, expect } from '@playwright/test';
+test('places the image on the left, controls on the right and comparison below', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 }); await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+  const preview = await page.getByRole('region', { name: 'Vista previa de imagen' }).boundingBox();
+  const controls = await page.getByRole('complementary', { name: 'Parámetros del filtro' }).boundingBox();
+  const canvas = await page.locator('canvas').boundingBox();
+  const comparison = await page.getByRole('group', { name: 'Comparar antes y después' }).boundingBox();
+  expect(preview!.x + preview!.width).toBeLessThan(controls!.x);
+  expect(comparison!.y).toBeGreaterThanOrEqual(canvas!.y + canvas!.height);
+  await page.screenshot({ path: `outputs/editor-${testInfo.project.name}.png`, fullPage: true });
+});
+test('edits, compares, saves and exports a real image', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
+  await page.goto('/');
+  const downloadButton = page.getByRole('button', { name: 'Exportar imagen' });
+  await expect(downloadButton).toBeEnabled();
+  const original = await page.locator('canvas').screenshot();
+  await page.getByRole('spinbutton', { name: 'Grosor de las tiras: valor exacto' }).fill('29');
+  await expect(page.getByRole('slider', { name: 'Grosor de las tiras', exact: true })).toHaveValue('29');
+  await expect(downloadButton).toBeEnabled();
+  expect((await page.locator('canvas').screenshot()).equals(original)).toBe(false);
+  await page.getByRole('button', { name: 'Original', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Original', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Resultado', exact: true }).click();
+  await expect(page.getByText('Guardado en este navegador')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('spinbutton', { name: 'Grosor de las tiras: valor exacto' })).toHaveValue('29');
+  await expect(downloadButton).toBeEnabled();
+  const [download] = await Promise.all([page.waitForEvent('download'), downloadButton.click()]);
+  expect(download.suggestedFilename()).toMatch(/-pliegue\.png$/);
+  expect(await download.failure()).toBeNull();
+  expect(errors).toEqual([]);
+});
+test('imports multiple files and updates the active source', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+  const sourceUrl = await page.getByRole('img', { name: 'Estudio 01.png', exact: true }).getAttribute('src');
+  const fixture = Buffer.from(sourceUrl!.split(',')[1], 'base64');
+  await page.locator('input[type=file]').setInputFiles([{ name: 'uno.png', mimeType: 'image/png', buffer: fixture }, { name: 'dos.png', mimeType: 'image/png', buffer: fixture }]);
+  await expect(page.getByRole('button', { name: 'Seleccionar dos.png' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Seleccionar uno.png' }).click();
+  await expect(page.getByRole('button', { name: 'Seleccionar uno.png' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+});
+test('works without workers, validates exact input and fits mobile', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(window, 'Worker', { value: undefined }); });
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+  const field = page.getByRole('spinbutton', { name: 'Repeticiones: valor exacto' });
+  await field.fill('99'); await field.press('Tab'); await expect(field).toHaveValue('12');
+  await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Restablecer parámetros' }).click(); await expect(field).toHaveValue('2');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

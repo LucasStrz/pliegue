@@ -1,0 +1,24 @@
+/* Keep the image, comparison and export in reach while controls scroll. */
+@media (min-width: 761px) {
+  main { padding-top: 32px; }
+  .page-heading { margin-bottom: 26px; }
+  .canvas-workspace { height: clamp(330px, calc(100dvh - 405px), 640px); min-height: 0; }
+  .controls-panel { display: flex; flex-direction: column; height: calc(clamp(330px, calc(100dvh - 405px), 640px) + 196px); }
+  .controls-heading, .export-area { flex-shrink: 0; }
+  .controls-scroll { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #cbd2bd transparent; min-height: 0; }
+  .filter-intro { padding-top: 18px; padding-bottom: 17px; }
+  .preset-field { padding-bottom: 18px; }
+  .process-section:first-of-type { position: relative; min-height: 113px; padding-bottom: 20px; }
+  .process-section:first-of-type .section-description { max-width: 185px; font-size: 9px; }
+  .mirror-diagram { position: absolute; right: 26px; top: 44px; height: 39px; width: 43px; margin: 0; }
+  .mirror-diagram>span { font-size: 13px; }
+  .mirror-diagram>i { left: 8px; top: 45px; }
+  .export-info { margin-bottom: 10px; }
+  .export-area { padding-top: 15px; padding-bottom: 14px; }
+}
+@media (max-width: 760px) {
+  .controls-panel { display: flex; flex-direction: column; }
+  .controls-scroll { display: grid; grid-template-columns: 1fr 1fr; }
+  .filter-intro, .preset-field { grid-column: 1/-1; }
+  .cuts-section { grid-column: 2; grid-row: 3/5; }
+}
