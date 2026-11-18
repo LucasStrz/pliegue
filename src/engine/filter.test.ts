@@ -34,8 +34,15 @@ describe('mirroring and strip recomposition', () => {
     expect(out.data[(out.width * out.height - 1) * 4]).toBe(6);
     expect(source.data).toEqual(copy);
   });
-  it('can bypass mirroring and transposes odd passes', () => {
-    const out = processImage(fixture(5, 3), { ...defaults, mirror: false, iterations: 3 });
-    expect([out.width, out.height]).toEqual([3, 5]); expect(out.data.length).toBe(60);
+  it('always mirrors and transposes odd passes', () => {
+    const out = processImage(fixture(5, 3), { ...defaults, stripWidth: 1, iterations: 3 });
+    expect([out.width, out.height]).toEqual([6, 10]); expect(out.data.length).toBe(240);
+  });
+  it('pads both axes to full n by n tiles before processing', () => {
+    for (const iterations of [1, 2, 3]) {
+      const out = processImage(fixture(5, 3), { ...defaults, stripWidth: 4, iterations, tileRotation: 90 });
+      expect(out.width % 4).toBe(0); expect(out.height % 4).toBe(0);
+      expect([out.width, out.height]).toEqual(iterations % 2 ? [8, 12] : [12, 8]);
+    }
   });
 });

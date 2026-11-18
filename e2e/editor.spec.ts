@@ -11,6 +11,7 @@ test('places the image on the left, controls on the right and comparison below',
   await expect(page.getByLabel('Giro', { exact: true })).toHaveValue('ccw');
   await expect(page.getByRole('button', { name: 'Mover lienzo' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Acercar' })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: 'Activar espejo 2 por 2' })).toHaveCount(0);
   await page.screenshot({ path: `outputs/editor-${testInfo.project.name}.png`, fullPage: true });
 });
 test('edits, compares, saves and exports a real image', async ({ page }) => {
@@ -63,7 +64,7 @@ test('migrates the old rotation default and preserves later choices', async ({ p
   await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
   await page.reload(); await expect(page.getByLabel('Giro', { exact: true })).toHaveValue('cw');
 });
-test('edits quadrant rotation, blur, saturation and full rotation, then restores and exports', async ({ page }) => {
+test('edits quadrant rotation, blur, saturation and tile rotation, then restores and exports', async ({ page }) => {
   await page.goto('/');
   const exportButton = page.getByRole('button', { name: 'Exportar imagen' });
   await expect(exportButton).toBeEnabled();
@@ -85,19 +86,19 @@ test('edits quadrant rotation, blur, saturation and full rotation, then restores
     for (let i = 0; i < pixels.length; i += 400) if (pixels[i] !== pixels[i + 1] || pixels[i] !== pixels[i + 2]) return false;
     return true;
   })).toBe(true);
-  await page.getByRole('spinbutton', { name: 'Rotación: valor exacto' }).fill('90');
+  await page.getByLabel('Giro de baldosas', { exact: true }).selectOption('90');
   await expect(exportButton).toBeEnabled();
-  await expect.poll(() => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => [canvas.width, canvas.height])).toEqual([1040, 840]);
+  await expect.poll(() => page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => [canvas.width, canvas.height])).toEqual([840, 1040]);
   await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
   await page.reload(); await expect(exportButton).toBeEnabled();
   await expect(page.getByLabel('Giro cuadrante 1', { exact: true })).toHaveValue('90');
   await expect(page.getByLabel('Blur', { exact: true })).toHaveValue('gaussian');
   await expect(page.getByRole('spinbutton', { name: 'Intensidad blur: valor exacto' })).toHaveValue('4');
   await expect(page.getByRole('spinbutton', { name: 'Saturación: valor exacto' })).toHaveValue('0');
-  await expect(page.getByRole('spinbutton', { name: 'Rotación: valor exacto' })).toHaveValue('90');
+  await expect(page.getByLabel('Giro de baldosas', { exact: true })).toHaveValue('90');
   const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()]);
   const fs = await import('node:fs'); const png = fs.readFileSync((await download.path())!);
-  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1040, 840]);
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([840, 1040]);
   await page.getByRole('button', { name: 'Restablecer parámetros' }).click();
   await expect(page.getByLabel('Giro cuadrante 1', { exact: true })).toHaveValue('0');
   await expect(page.getByLabel('Blur', { exact: true })).toHaveValue('none');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adjustColor, blurImage, fitImage, mixOriginal, rotateImage, rotateQuadrants } from './effects';
+import { adjustColor, blurImage, fitImage, mixOriginal, rotateImage, rotateQuadrants, padToTiles, rotateTiles } from './effects';
 import { defaults, mirrorGrid, processImage } from './filter';
 import type { Pixels } from './filter';
 const rgba = (width: number, height: number, values: number[][]): Pixels => ({ width, height, data: new Uint8ClampedArray(values.flat()) });
@@ -59,7 +59,23 @@ describe('rotation, color, blur and original blending', () => {
     expect(Array.from(mixOriginal(result, rgba(1, 1, [[0, 0, 0, 0]]), 50).data)).toEqual([255, 0, 0, 128]);
   });
   it('zero intensity bypasses all effects on the original branch', () => {
-    const out = processImage(asymmetric, { ...defaults, mix: 0, saturation: 0, contrast: 70, blurType: 'gaussian', blurStrength: 8, rotation: 90, quadrantRotations: [90, 0, 270, 180] });
+    const out = processImage(asymmetric, { ...defaults, mix: 0, saturation: 0, contrast: 70, blurType: 'gaussian', blurStrength: 8, tileRotation: 90, quadrantRotations: [90, 0, 270, 180] });
     expect(out).toEqual(fitImage(asymmetric, out.width, out.height));
+  });
+  it('rotates each tile, not the whole image or the tile layout', () => {
+    const source = rgba(4, 4, Array.from({ length: 16 }, (_, i) => [i + 1, 0, 0, 255]));
+    const out = rotateTiles(source, 2, 90);
+    expect([out.width, out.height]).toEqual([4, 4]);
+    expect(reds(out)).toEqual([5, 1, 7, 3, 6, 2, 8, 4, 13, 9, 15, 11, 14, 10, 16, 12]);
+    expect(rotateTiles(out, 2, 270)).toEqual(source);
+    expect(rotateTiles(rotateTiles(source, 2, 180), 2, 180)).toEqual(source);
+    expect(rotateTiles(source, 1, 90)).toBe(source);
+  });
+  it('completes edge tiles by extending edge pixels without losing original pixels', () => {
+    const source = rgba(3, 1, [[1, 0, 0, 255], [2, 0, 0, 128], [3, 0, 0, 0]]);
+    const padded = padToTiles(source, 2);
+    expect([padded.width, padded.height]).toEqual([4, 2]);
+    expect(reds(padded)).toEqual([1, 2, 3, 3, 1, 2, 3, 3]);
+    expect(rotateTiles(rotateTiles(source, 2, 90), 2, 270)).toEqual(padded);
   });
 });

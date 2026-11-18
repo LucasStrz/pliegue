@@ -51,6 +51,37 @@ export function rotateQuadrants(grid: Pixels, angles: readonly number[]): Pixels
   return out;
 }
 
+/** Extend only bottom/right edges so every tile is a complete n by n square. */
+export function padToTiles(source: Pixels, thickness: number): Pixels {
+  const n = Math.max(1, Math.round(thickness));
+  const width = Math.ceil(source.width / n) * n, height = Math.ceil(source.height / n) * n;
+  if (width === source.width && height === source.height) return source;
+  const out = empty(width, height);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const from = (Math.min(y, source.height - 1) * source.width + Math.min(x, source.width - 1)) * 4;
+    const to = (y * width + x) * 4;
+    for (let c = 0; c < 4; c++) out.data[to + c] = source.data[from + c];
+  }
+  return out;
+}
+
+/** Rotate each n by n tile in place; tile positions and output dimensions stay fixed. */
+export function rotateTiles(source: Pixels, thickness: number, degrees: number): Pixels {
+  const n = Math.max(1, Math.round(thickness)), grid = padToTiles(source, n);
+  const turns = ((Math.round(degrees / 90) % 4) + 4) % 4;
+  if (!turns || n === 1) return grid;
+  const out = empty(grid.width, grid.height);
+  for (let oy = 0; oy < grid.height; oy += n) for (let ox = 0; ox < grid.width; ox += n) {
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const nx = turns === 1 ? n - 1 - y : turns === 2 ? n - 1 - x : y;
+      const ny = turns === 1 ? x : turns === 2 ? n - 1 - y : n - 1 - x;
+      const from = ((oy + y) * grid.width + ox + x) * 4, to = ((oy + ny) * grid.width + ox + nx) * 4;
+      for (let c = 0; c < 4; c++) out.data[to + c] = grid.data[from + c];
+    }
+  }
+  return out;
+}
+
 export function adjustColor(source: Pixels, contrast: number, saturation: number): Pixels {
   if (!contrast && saturation === 100) return source;
   const out = empty(source.width, source.height), factor = (259 * (contrast + 255)) / (255 * (259 - contrast)), amount = saturation / 100;

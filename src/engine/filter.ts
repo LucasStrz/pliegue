@@ -1,7 +1,7 @@
-import { adjustColor, blurImage, mixOriginal, rotateImage, rotateQuadrants } from './effects';
+import { adjustColor, blurImage, mixOriginal, padToTiles, rotateTiles, rotateQuadrants } from './effects';
 export interface Pixels { width: number; height: number; data: Uint8ClampedArray }
-export interface FilterParams { stripWidth: number; iterations: number; mirror: boolean; reverse: boolean; clockwise: boolean; mix: number; contrast: number; saturation: number; blurType: 'none' | 'gaussian' | 'box'; blurStrength: number; rotation: number; quadrantRotations: [number, number, number, number] }
-export const defaults: FilterParams = { stripWidth: 8, iterations: 2, mirror: true, reverse: false, clockwise: false, mix: 100, contrast: 0, saturation: 100, blurType: 'none', blurStrength: 0, rotation: 0, quadrantRotations: [0, 0, 0, 0] };
+export interface FilterParams { stripWidth: number; iterations: number; reverse: boolean; clockwise: boolean; mix: number; contrast: number; saturation: number; blurType: 'none' | 'gaussian' | 'box'; blurStrength: number; tileRotation: number; quadrantRotations: [number, number, number, number] }
+export const defaults: FilterParams = { stripWidth: 8, iterations: 2, reverse: false, clockwise: false, mix: 100, contrast: 0, saturation: 100, blurType: 'none', blurStrength: 0, tileRotation: 0, quadrantRotations: [0, 0, 0, 0] };
 
 /** Reflect about the central axes; every source pixel appears exactly four times. */
 export function mirrorGrid(source: Pixels): Pixels {
@@ -40,12 +40,12 @@ export function weave(source: Pixels, thickness: number, reverse = false, clockw
 }
 
 export function processImage(source: Pixels, params: FilterParams): Pixels {
-  const base = params.mirror ? rotateQuadrants(mirrorGrid(source), params.quadrantRotations) : source;
+  const base = padToTiles(rotateQuadrants(mirrorGrid(source), params.quadrantRotations), params.stripWidth);
   let result = base;
   const passes = Math.max(1, Math.min(12, Math.round(params.iterations)));
   for (let i = 0; i < passes; i++) result = weave(result, params.stripWidth, params.reverse, params.clockwise);
   result = adjustColor(result, params.contrast, params.saturation);
   result = blurImage(result, params.blurType, params.blurStrength);
-  result = rotateImage(result, params.rotation);
+  result = rotateTiles(result, params.stripWidth, params.tileRotation);
   return mixOriginal(result, source, params.mix);
 }
