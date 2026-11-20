@@ -110,7 +110,7 @@ function boxPass(input: Float32Array, out: Float32Array, width: number, height: 
 
 /** Gaussian uses three variance-matched box passes, an efficient Gaussian approximation. */
 export function blurImage(source: Pixels, type: 'none' | 'gaussian' | 'box', strength: number): Pixels {
-  const radius = Math.max(0, Math.min(30, Math.round(strength)));
+  const radius = Math.max(0, Math.min(Math.max(source.width, source.height), Math.round(strength)));
   if (type === 'none' || !radius) return source;
   let radii = [radius];
   if (type === 'gaussian') {

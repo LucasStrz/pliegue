@@ -1,6 +1,6 @@
 # Funcionamiento de Pliegue
 
-Documentación del código actual, revisada el 18 de noviembre de 2026.
+Documentación del código actual, actualizada el 20 de noviembre de 2026.
 
 ## 1. Qué hace la aplicación
 
@@ -10,7 +10,7 @@ El procesamiento ocurre en el navegador. No hay un servidor de procesamiento de 
 
 **Estado actual del shader:** Pixel smooth está temporalmente deshabilitado tanto en la interfaz como en el motor. Su implementación se conserva para reactivarla. Un proyecto antiguo con `smoothing: true` tampoco lo ejecuta.
 
-La imagen a la que se llama «original» es la imagen de trabajo decodificada y reducida, cuando corresponde, a un máximo de 900 px en su lado mayor. No es una copia del archivo original a resolución completa.
+Se conservan dos representaciones: el archivo original codificado (`originalUrl`) con sus dimensiones nativas y una copia de trabajo reducida a un máximo de 900 px para la vista previa. La exportación vuelve a decodificar la original sin esa reducción.
 
 ## 2. Mapa de archivos y responsabilidades
 
@@ -29,6 +29,8 @@ La imagen a la que se llama «original» es la imagen de trabajo decodificada y 
 | `src/engine/effects.ts` | Muestreo, ajuste proporcional, giros, preparación de baldosas, color, blur y mezcla. |
 | `src/engine/smoothing.ts` | Implementación conservada de Pixel smooth: GLSL/WebGL2 y alternativa CPU. |
 | `src/engine/filter.worker.ts` | Recibe solicitudes del editor, ejecuta el motor y devuelve el resultado. |
+| `src/lib/export.ts` | Decodifica la original y ejecuta la exportación mediante un Worker independiente o la alternativa principal. |
+| `src/engine/export-settings.ts` | Escala parámetros de píxel y calcula y valida el tamaño nativo de salida. |
 | `src/lib/images.ts` | FileReader, decodificación de imágenes, normalización del tamaño y conversión de píxeles a Canvas. |
 | `src/lib/storage.ts` | Lectura y escritura del último proyecto en IndexedDB. |
 | `public/entrelazado.jpg` | Fotografía de demostración adjunta por el usuario y distribuida con la aplicación. |
@@ -62,7 +64,7 @@ flowchart TD
     D --> K
 ```
 
-La alternativa «Antes» del visor utiliza la original de trabajo. «Después» utiliza el resultado. Exportar siempre utiliza el resultado procesado, incluso si el visor está mostrando «Antes».
+La alternativa «Antes» del visor utiliza la original de trabajo. «Después» utiliza el resultado. Exportar vuelve a procesar la original a resolución nativa, incluso si el visor está mostrando «Antes». No utiliza el búfer reducido de la vista previa.
 
 ## 4. Modelo de píxeles
 
@@ -82,14 +84,14 @@ Cada píxel ocupa cuatro posiciones consecutivas: rojo, verde, azul y alfa, con 
 
 El tamaño de `data` es `width × height × 4`. `Uint8ClampedArray` redondea y limita los valores escritos a su intervalo válido. Las funciones que realizan una modificación crean normalmente un nuevo búfer; los efectos neutros pueden devolver el mismo objeto de entrada.
 
-Los tamaños de salida se calculan sobre estos píxeles de trabajo. El tamaño visual en CSS no cambia la resolución del resultado exportado.
+El motor se ejecuta con píxeles reducidos para la vista previa y con píxeles nativos para la exportación. El tamaño visual en CSS no cambia la resolución del resultado exportado.
 
 ## 5. Inicialización y restauración
 
 Al montar `App`:
 
 1. Se intenta leer la clave `latest` de IndexedDB.
-2. Si existe un proyecto, se decodifica su PNG guardado y se restauran sus parámetros.
+2. Si existe un proyecto, se usa `originalImage` cuando está disponible, o el PNG reducido histórico de `image` para compatibilidad, y se restauran sus parámetros.
 3. Los parámetros guardados se combinan con `defaults`, para que proyectos antiguos reciban los nuevos campos.
 4. Si el proyecto no tiene `uiVersion: 2`, el giro de las tiras se migra a antihorario. Las elecciones posteriores guardadas con esa versión se respetan.
 5. Si no existe un proyecto, se carga `public/entrelazado.jpg` con los valores iniciales de Entrelazado. Los proyectos guardados como demostración también usan esta foto. La demostración anterior (`Estudio 01.png`, sin metadatos de procedencia) se reconoce y se sustituye; las imágenes guardadas como importadas conservan su contenido.
@@ -332,14 +334,15 @@ Los controles tienen etiquetas o nombres accesibles. `aria-busy` indica que hay 
 ```ts
 interface SavedProject {
   name: string;
-  image: string;       // PNG data URL de la original de trabajo
+  image: string;       // PNG reducido de trabajo
+  originalImage?: string; // Archivo original codificado o URL de la demostración
   params: FilterParams;
   uiVersion?: 2;
   isDemo?: boolean;    // Procedencia: demostración incluida o archivo importado
 }
 ```
 
-Se guarda solo el último proyecto activo: nombre, imagen de trabajo y parámetros. No se persisten toda la biblioteca de sesión, el resultado procesado, el formato JPG/PNG, el toggle ni el nombre del preajuste. El resultado se vuelve a calcular al abrir.
+Se guarda solo el último proyecto activo: nombre, imagen de trabajo, archivo original (`originalImage`) y parámetros. No se persisten toda la biblioteca de sesión, el resultado procesado, el formato JPG/PNG, el toggle ni el nombre del preajuste. El resultado se vuelve a calcular al abrir.
 
 El guardado utiliza una transacción de escritura y espera a que se complete. Las funciones cierran la conexión después de leer o escribir. Al cambiar rápidamente los parámetros, se cancela el temporizador de guardado anterior.
 
@@ -349,14 +352,18 @@ Los fallos de IndexedDB actualizan el estado accesible de guardado; la edición 
 
 ## 13. Exportación
 
-`exportImage` exige un resultado disponible y rechaza la acción mientras el motor o la exportación estén ocupados. Se crea un Canvas con el RGBA final.
+`exportImage` exige un resultado disponible y rechaza la acción mientras el motor o la exportación estén ocupados. Se captura la selección de imagen, parámetros y formato al comenzar. `renderOriginal` decodifica la imagen sin reducción y calcula nuevamente todos los efectos con un Worker independiente. Si no es posible crear el Worker, utiliza el hilo principal. El Worker se termina al completar o fallar. Se crea un Canvas con el RGBA nativo final y se libera su superficie después de generar el Blob.
 
 - **PNG:** conserva el alfa y los márgenes transparentes.
 - **JPG:** pinta blanco por detrás con `destination-over`; se solicita calidad 0.95 a `toBlob`.
 
 El nombre es `<nombre-sin-extensión>-pliegue.png` o `.jpg`. Se crea una URL de objeto temporal, se activa la descarga con un enlace y se revoca la URL después de 10 segundos.
 
-La resolución corresponde al procesamiento, incluido el relleno a múltiplos de n y el intercambio de dimensiones de pasadas impares. No se exporta la captura del visor ni la resolución nativa del archivo importado cuando fue reducido.
+La resolución corresponde a la original duplicada en ambos ejes, más el relleno a múltiplos del grosor nativo, con intercambio de dimensiones para pasadas impares. `exportSettings` calcula el factor entre lado mayor original y lado mayor de vista previa; multiplica por él el grosor de tiras y la intensidad del blur, redondeando a enteros. Los demás ajustes conservan su valor. El límite de 30 px del blur pertenece al control de la vista previa: el motor acepta radios mayores al exportar.
+
+Ejemplo: original 4000×3000, vista previa 900×675, grosor 8 → grosor nativo 36; espejo 8000×6000 → salida 8028×6012. Con 1 o 3 pasadas: 6012×8028. No se amplía un PNG de la vista previa: se procesan los píxeles nativos. La similitud entre vista previa y exportación es aproximada por el redondeo, el muestreo y el comportamiento de efectos no lineales.
+
+La validación rechaza tamaños superiores a 64 millones de píxeles, lados de más de 32767 px o una estimación de trabajo superior a 2000 millones de bytes (24 bytes por píxel sin blur, 56 con blur). Es una comprobación preventiva, no una garantía de memoria disponible. Un error no provoca una exportación reducida silenciosa. Los proyectos antiguos sin `originalImage` necesitan reimportar el archivo para recuperar detalle nativo.
 
 ## 14. Pruebas y verificación
 
@@ -408,7 +415,7 @@ El mismo interruptor habilita la etapa del motor y sus controles. No hace falta 
 
 ## 17. Límites y puntos de extensión
 
-- La importación reduce el lado mayor a 900 px; no hay edición a resolución nativa de archivos grandes.
+- La previsualización reduce el lado mayor a 900 px; la exportación reejecuta los efectos sobre la original nativa. Los proyectos antiguos que solo guardaron la copia reducida no pueden recuperar el detalle perdido sin reimportar.
 - La sesión contiene como máximo 12 imágenes seleccionables, sin mezcla multicapa.
 - No hay deshacer/rehacer, máscaras, selección, zoom, movimiento ni exportación de proyectos como archivo.
 - El guardado conserva un solo proyecto activo y depende de la cuota local disponible.

@@ -1,4 +1,38 @@
 import { test, expect } from '@playwright/test';
+test('exports native detail and dimensions after restoring a reduced preview', async ({ page }) => {
+  test.setTimeout(120000);
+  await page.goto('/'); const button = page.getByRole('button', { name: 'Exportar imagen' }); await expect(button).toBeEnabled();
+  const image = await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 1800; canvas.height = 1200;
+    const ctx = canvas.getContext('2d')!;
+    for (let x = 0; x < canvas.width; x++) { ctx.fillStyle = x % 2 ? '#000' : '#fff'; ctx.fillRect(x, 0, 1, canvas.height); }
+    return canvas.toDataURL();
+  });
+  await page.locator('input[type=file]').setInputFiles({ name: 'native.png', mimeType: 'image/png', buffer: Buffer.from(image.split(',')[1], 'base64') });
+  await expect(button).toBeEnabled();
+  expect(await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => [canvas.width, canvas.height])).toEqual([1800, 1200]);
+  await page.getByRole('spinbutton', { name: 'Intensidad: valor exacto', exact: true }).fill('0');
+  await expect(page.getByText('Guardado en este navegador')).toHaveText('Guardado en este navegador');
+  await page.reload(); await expect(button).toBeEnabled();
+  const fs = await import('node:fs');
+  const [pngDownload] = await Promise.all([page.waitForEvent('download'), button.click()]);
+  const png = fs.readFileSync((await pngDownload.path())!);
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([3600, 2400]);
+  const detail = await page.evaluate(async base64 => {
+    const blob = await fetch('data:image/png;base64,' + base64).then(r => r.blob());
+    const bitmap = await createImageBitmap(blob), canvas = document.createElement('canvas');
+    canvas.width = 200; canvas.height = 1; const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(bitmap, 0, 20, 200, 1, 0, 0, 200, 1); bitmap.close();
+    const data = ctx.getImageData(0, 0, 200, 1).data; let min = 255, max = 0;
+    for (let i = 80; i < data.length - 80; i += 4) { min = Math.min(min, data[i]); max = Math.max(max, data[i]); }
+    return { min, max };
+  }, png.toString('base64'));
+  expect(detail.min).toBeLessThan(80); expect(detail.max).toBeGreaterThan(175);
+  await page.getByLabel('Formato de exportación').selectOption('jpeg');
+  const [jpgDownload] = await Promise.all([page.waitForEvent('download'), button.click()]);
+  const jpg = fs.readFileSync((await jpgDownload.path())!);
+  expect(await page.evaluate(async base64 => { const blob = await fetch('data:image/jpeg;base64,' + base64).then(r => r.blob()); const img = await createImageBitmap(blob); const size = [img.width, img.height]; img.close(); return size; }, jpg.toString('base64'))).toEqual([3600, 2400]);
+});
 test('starts with the supplied default image and Entrelazado preset', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Exportar imagen' })).toBeEnabled();
   await expect(page.getByLabel('Preajuste', { exact: true })).toHaveValue('Entrelazado');

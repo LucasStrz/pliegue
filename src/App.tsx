@@ -8,7 +8,8 @@ import { decodeImage, pixelsToCanvas, readFile } from './lib/images';
 import { restoreProject, saveProject } from './lib/storage';
 import { useProcessor } from './hooks/useProcessor';
 import { PIXEL_SMOOTH_ENABLED } from './config/features';
-interface Asset { id: string; name: string; thumbnail: string; source: Pixels; isDemo: boolean }
+import { renderOriginal } from './lib/export';
+interface Asset { id: string; name: string; thumbnail: string; source: Pixels; isDemo: boolean; originalUrl: string; originalWidth: number; originalHeight: number }
 const presets = [{ name: 'Entrelazado', width: 8, passes: 2 }, { name: 'Fragmentos', width: 32, passes: 2 }, { name: 'Trama fina', width: 2, passes: 4 }];
 export default function App() {
   const { params, setParam, setParams, before, setBefore, reset } = useEditor();
@@ -19,7 +20,7 @@ export default function App() {
   const demo = useRef<Asset | null>(null);
   const asset = assets.find(a => a.id === activeId) ?? assets[0];
   const { result, busy, error: processError } = useProcessor(asset?.source ?? null, params);
-  const importUrl = useCallback(async (url: string, name: string, isDemo = false) => { const decoded = await decodeImage(url); return { id: crypto.randomUUID(), name, isDemo, ...decoded }; }, []);
+  const importUrl = useCallback(async (url: string, name: string, isDemo = false) => { const decoded = await decodeImage(url); return { id: crypto.randomUUID(), name, isDemo, originalUrl: url, ...decoded }; }, []);
   const loadDemo = useCallback(async () => {
     if (!demo.current) demo.current = await importUrl('/entrelazado.jpg', 'Entrelazado.jpg', true);
     return demo.current;
@@ -32,7 +33,7 @@ export default function App() {
       try { saved = await restoreProject(); } catch { if (!cancelled) setSaveStatus('Guardado local no disponible'); }
       try {
         const isSavedDemo = saved?.isDemo === true || (saved?.isDemo === undefined && saved?.name === 'Estudio 01.png');
-        const item = saved && !isSavedDemo ? await importUrl(saved.image, saved.name) : await loadDemo();
+        const item = saved && !isSavedDemo ? await importUrl(saved.originalImage ?? saved.image, saved.name) : await loadDemo();
         if (cancelled || generation !== importGeneration.current) return;
         setAssets([item]); setActiveId(item.id); if (saved) setParams({ ...defaults, ...saved.params, clockwise: saved.uiVersion === 2 ? saved.params.clockwise : false });
       } catch (e) { if (!cancelled) setError(String(e)); }
@@ -43,7 +44,7 @@ export default function App() {
   useEffect(() => {
     if (!asset) return;
     setSaveStatus('Guardando cambios…');
-    const timer = window.setTimeout(() => { saveProject({ name: asset.name, image: asset.thumbnail, params, uiVersion: 2, isDemo: asset.isDemo }).then(() => setSaveStatus('Guardado en este navegador')).catch(() => setSaveStatus('No se pudo guardar localmente')); }, 650);
+    const timer = window.setTimeout(() => { saveProject({ name: asset.name, image: asset.thumbnail, originalImage: asset.originalUrl, params, uiVersion: 2, isDemo: asset.isDemo }).then(() => setSaveStatus('Guardado en este navegador')).catch(() => setSaveStatus('No se pudo guardar localmente')); }, 650);
     return () => window.clearTimeout(timer);
   }, [asset, params]);
   useEffect(() => { if (!message) return; const t = setTimeout(() => setMessage(''), 3500); return () => clearTimeout(t); }, [message]);
@@ -69,21 +70,24 @@ export default function App() {
       const next = remaining[Math.min(index, remaining.length - 1)] ?? await loadDemo();
       setAssets(remaining.length ? remaining : [next]); setActiveId(next.id); setBefore(false);
       try {
-        await saveProject({ name: next.name, image: next.thumbnail, params, uiVersion: 2, isDemo: next.isDemo });
+        await saveProject({ name: next.name, image: next.thumbnail, originalImage: next.originalUrl, params, uiVersion: 2, isDemo: next.isDemo });
         setSaveStatus('Guardado en este navegador');
       } catch { setSaveStatus('No se pudo guardar localmente'); setError('Imagen retirada de la sesión. No se pudo actualizar el guardado local.'); }
       setMessage('Imagen eliminada de la sesión');
     } catch (e) { setError(String(e)); } finally { setLoading(false); }
   }
   async function exportImage() {
-    if (!result || busy || !asset) return;
+    if (!result || busy || !asset || exporting) return;
+    const exportFormat = format;
     setExporting(true);
     try {
-      const canvas = pixelsToCanvas(result);
-      if (format === 'jpeg') { const ctx = canvas.getContext('2d')!; ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, `image/${format}`, .95));
+      const fullResult = await renderOriginal(asset.originalUrl, asset.originalWidth, asset.originalHeight, asset.source, params);
+      const canvas = pixelsToCanvas(fullResult);
+      if (exportFormat === 'jpeg') { const ctx = canvas.getContext('2d')!; ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, `image/${exportFormat}`, .95));
+      canvas.width = 0; canvas.height = 0;
       if (!blob) throw new Error('No se pudo generar el archivo.');
-      const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `${asset.name.replace(/\.[^.]+$/, '')}-pliegue.${format === 'jpeg' ? 'jpg' : 'png'}`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 10000); setMessage('Tu collage está listo. Descarga iniciada.');
+      const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `${asset.name.replace(/\.[^.]+$/, '')}-pliegue.${exportFormat === 'jpeg' ? 'jpg' : 'png'}`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 10000); setMessage('Tu collage a resolución original está listo. Descarga iniciada.');
     } catch (e) { setError(String(e)); } finally { setExporting(false); }
   }
   const custom = () => setPresetName('Personalizado');

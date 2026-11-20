@@ -45,7 +45,7 @@ Los controles permiten elegir grosor, repeticiones, extremo inicial, dirección 
 
 El procesamiento activo trabaja directamente con ImageData. La implementación de Pixel smooth, actualmente inactiva, puede usar OffscreenCanvas y WebGL2 o su alternativa CPU. Canvas se utiliza para decodificar y exportar. El editor funciona en Chromium y Firefox y no requiere OffscreenCanvas.
 
-Para mantener la respuesta interactiva, la imagen de trabajo se ajusta a 900 px en su lado mayor antes del espejo (hasta 1800 px después, más el relleno necesario para completar baldosas). La exportación usa esta resolución, sin prometer resolución nativa del archivo original. Se admiten archivos de hasta 30 MiB, un máximo de 12 imágenes en la sesión y se guarda automáticamente **el último proyecto activo**, no la biblioteca completa. IndexedDB depende del almacenamiento disponible del navegador; los fallos actualizan el estado accesible de guardado, actualmente oculto visualmente. Las animaciones GIF se importan como una imagen fija.
+Para mantener la respuesta interactiva, la imagen de trabajo se ajusta a 900 px en su lado mayor antes del espejo (hasta 1800 px después, más el relleno necesario para completar baldosas). Esta reducción solo se usa en la previsualización. Al exportar se decodifica el archivo original y se vuelve a ejecutar el filtro a resolución nativa, incluido el espejo 2×2. El grosor de tiras y el radio de blur se escalan proporcionalmente para conservar aproximadamente el aspecto de la vista previa. El relleno de baldosas puede aumentar unos píxeles las dimensiones finales. Se admiten archivos de hasta 30 MiB, un máximo de 12 imágenes en la sesión y se guarda automáticamente **el último proyecto activo**, no la biblioteca completa. IndexedDB depende del almacenamiento disponible del navegador; los fallos actualizan el estado accesible de guardado, actualmente oculto visualmente. Las animaciones GIF se importan como una imagen fija.
 
 La demostración inicial es la fotografía adjunta por el usuario, incluida en `public/entrelazado.jpg`, con el preajuste Entrelazado. Las imágenes importadas pueden retirarse mediante «Eliminar imagen seleccionada». Se selecciona otra imagen disponible o se vuelve a la demostración, y se actualiza el último proyecto guardado. Esto no elimina archivos del disco del usuario.
 
@@ -61,3 +61,9 @@ npm run test:e2e
 ```
 
 Vitest comprueba la reflexión de ambos ejes, el orden exacto de las tiras, los giros, los grosores no divisibles, la conservación de RGBA y la mezcla. Playwright comprueba edición, comparación, restauración, descarga, importación múltiple, fallback sin Worker y diseño móvil en Chromium y Firefox.
+
+## Exportación a resolución original
+
+Se conserva el archivo importado en memoria y en IndexedDB (`originalImage`). La vista previa sigue limitada a 900 px por lado; la exportación utiliza un Worker independiente y no amplía el resultado reducido. Con una entrada de 4000×3000 y los valores por defecto, el grosor de exportación es 36 px y la salida es 8028×6012 (8000×6000 más el relleno de baldosas). Con pasadas impares se intercambian los lados. Las imágenes pequeñas conservan los mismos parámetros y tamaños anteriores.
+
+Los proyectos guardados antes de esta función solo contienen la copia reducida: hay que volver a importar su archivo original para recuperar la exportación nativa. Las nuevas importaciones conservan el original incluso después de recargar. Se comprueban límites de memoria (64 millones de píxeles de salida, lado máximo 32767 px y estimación de memoria según efectos); si se exceden, se muestra un error y no se reduce silenciosamente la resolución. La disponibilidad real también depende del navegador.
